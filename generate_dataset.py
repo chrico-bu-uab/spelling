@@ -37,6 +37,14 @@ def replace_characters(text, augmentation_probability=0.01):
             modifyed_line.append(char)
     return "".join(modifyed_line)
 
+def swap_characters(text, augmentation_probability=0.01):
+    text = list(text)
+    for i in range(len(text) - 1):
+        char, next_char = text[i], text[i + 1]
+        if random.random() <= augmentation_probability and char not in digits and next_char not in digits:
+            text[i + 1], text[i] = char, next_char
+    return "".join(text)
+
 def swap_characters_case(text, augmentation_probability=0.005):
     modifyed_line = []   
     for char in text:
@@ -67,6 +75,13 @@ clean_punctuation = re.compile(r"(?<!\d)[.,;:'?!](?!\d)")
 def remove_punctuation(text):
     """Remove all punctuation from string, except if it's between digits"""
     return clean_punctuation.sub("", text)
+
+def delete_spaces(text, space_delete_percentage=0.05):
+    modifyed_line = []
+    for char in text:
+        if char != " " or random.random() > space_delete_percentage:
+            modifyed_line.append(char)
+    return "".join(modifyed_line)
 
 def combine_sentences(text, sentences, augmentation_probability = 1):
     if random.random() < augmentation_probability:
@@ -117,9 +132,11 @@ if __name__ == "__main__":
                     new_line = delete_characters(new_line)
                     new_line = insert_characters(new_line)
                     new_line = replace_characters(new_line)
-                    new_line = swap_characters_case(new_line)         
+                    new_line = swap_characters(new_line)
+                    new_line = swap_characters_case(new_line)
                     new_line = lower_case_words(new_line)                                           
                     new_line = remove_punctuation(new_line)
+                    new_line = delete_spaces(new_line)
                 else:
                     new_line = line
                 output.write(f'"{new_line.strip()}","{line.strip()}"\n')        
@@ -128,6 +145,3 @@ if __name__ == "__main__":
     os.system(f"head -n {num_lines-2000} {language}.csv >> {language}.train.csv")
     os.system(f"echo \"text,summary\" > {language}.test.csv")
     os.system(f"tail -n 2000 {language}.csv >> {language}.test.csv")
-
-
-
