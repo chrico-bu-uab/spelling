@@ -5,6 +5,7 @@ import re
 import os
 from transformers import AutoTokenizer
 from tqdm import tqdm
+from tqdm.contrib.concurrent import process_map
 
 def tokenizer_check_if_text_too_long(text, tokenizer, max_length):
     data = tokenizer.batch_encode_plus([text],max_length=max_length,truncation=True,return_overflowing_tokens=True )    
@@ -104,6 +105,33 @@ def delete_word(text, augmentation_probability = 0.001):
         return text
 
 
+def filter_modify_line(line):
+    line = cleanup(line)
+    if len(line) < 1:
+        return
+    line = combine_sentences(line, sentences)
+    if tokenizer_check_if_text_too_long(line, tokenizer, max_length=1024):
+        print(f"skipping line as its too long ({len(line)}):\n" + line)
+        return
+
+    if random.random() > 0.02:
+        # we will leave 2% of the data untouched, to teach the
+        # model, not to "overact" on the texts
+        new_line = delete_word(line)
+        new_line = delete_characters(new_line)
+        new_line = insert_characters(new_line)
+        new_line = replace_characters(new_line)
+        new_line = swap_characters(new_line)
+        new_line = swap_characters_case(new_line)
+        new_line = lower_case_words(new_line)
+        new_line = remove_punctuation(new_line)
+        new_line = delete_spaces(new_line)
+    else:
+        new_line = line
+
+    return line, new_line
+
+
 if __name__ == "__main__":
     data_file = "data/data.en.txt" #"data/en.wikidump.processed.24m.txt" #
     language = "en" # "wikidump.24m.en"
@@ -116,30 +144,11 @@ if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained("facebook/bart-base")
     with open(language+".csv","w",encoding='utf-8') as output:        
         with open(data_file,'r') as file:
-            for line in tqdm(file, total=num_lines):
-                line = cleanup(line)
-                if len(line) < 1:
-                    continue 
-                line = combine_sentences(line,sentences)                
-                if tokenizer_check_if_text_too_long(line,tokenizer,max_length=1024):
-                    print(f"skipping line as its too long ({len(line)}):\n"+line)
-                    continue
-                
-                if random.random() >0.02:
-                    # we will leave 2% of the data untouched, to teach the 
-                    # model, not to "overact" on the texts
-                    new_line = delete_word(line)
-                    new_line = delete_characters(new_line)
-                    new_line = insert_characters(new_line)
-                    new_line = replace_characters(new_line)
-                    new_line = swap_characters(new_line)
-                    new_line = swap_characters_case(new_line)
-                    new_line = lower_case_words(new_line)                                           
-                    new_line = remove_punctuation(new_line)
-                    new_line = delete_spaces(new_line)
-                else:
-                    new_line = line
-                output.write(f'"{new_line.strip()}","{line.strip()}"\n')        
+            lines = process_map(filter_modify_line, file, chunksize=100000, total=num_lines)
+            for pair in lines:
+                if pair:
+                    line, new_line = pair
+                    output.write(f'"{new_line.strip()}","{line.strip()}"\n')
     os.system(f"echo \"text,summary\" > {language}.train.csv")
     num_lines = sum(1 for line in open(f"{language}.csv",'r'))
     os.system(f"head -n {num_lines-2000} {language}.csv >> {language}.train.csv")
