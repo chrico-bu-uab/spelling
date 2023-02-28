@@ -108,10 +108,9 @@ def filter_split_line(line):
     if len(re.sub(r"[^a-z]", "", line)) < 10:
         return
     line = combine_sentences(line, sentences)
-    line = line.strip().replace(". ", "€").split("€")
-    n = ceil(len(line) / tokenizer_check_if_text_too_long(line, tokenizer, max_length=1024))
-    lines = [line[i:i + n] for i in range(0, len(line), n)]
-    return [". ".join(line) for line in lines]
+    words = line.strip().replace(". ", "€").split("€")
+    n = ceil(len(words) / tokenizer_check_if_text_too_long(line, tokenizer, max_length=1024))
+    return [". ".join(words[i:i + n]) for i in range(0, len(words), n)]
 
 def modify_line(line):
     if random.random() > 0.02:
