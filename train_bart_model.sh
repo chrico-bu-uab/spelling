@@ -11,8 +11,8 @@ python run_summarization.py \
     --per_device_train_batch_size=8 \
     --per_device_eval_batch_size=32 \
     --gradient_accumulation_steps=32 \
-    --learning_rate="5e-4" \
-    --num_train_epochs=0.02 \
+    --learning_rate="4e-4" \
+    --num_train_epochs=1 \
     --predict_with_generate \
 	--logging_steps="10" \
     --save_total_limit="2" \

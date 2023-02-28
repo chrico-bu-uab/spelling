@@ -105,7 +105,8 @@ def delete_word(text, augmentation_probability = 0.001):
 
 def filter_split_line(line):
     line = cleanup(line)
-    if len(re.sub(r"[^a-z]", "", line)) < 10:
+    if len(re.sub(r"[^a-z]", "", line)) < 20:
+        print("line has too few lowercase chars:", line)
         return
     line = combine_sentences(line, sentences)
     words = line.strip().replace(". ", "€").split("€")
