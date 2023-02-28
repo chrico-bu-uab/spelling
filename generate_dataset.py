@@ -6,13 +6,11 @@ import os
 from transformers import AutoTokenizer
 from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
+from math import ceil
 
 def tokenizer_check_if_text_too_long(text, tokenizer, max_length):
     data = tokenizer.batch_encode_plus([text],max_length=max_length,truncation=True,return_overflowing_tokens=True )    
-    if len(data["input_ids"]) > 1:
-        return True
-    else:
-        return False#, len(data["input_ids"][0])
+    return len(data["input_ids"])
 
 def delete_characters(text, char_delete_percentage=0.01):
     modifyed_line = []   
@@ -105,15 +103,17 @@ def delete_word(text, augmentation_probability = 0.001):
         return text
 
 
-def filter_modify_line(line):
+def filter_split_line(line):
     line = cleanup(line)
-    if len(line) < 1:
+    if len(re.sub(r"[^a-z]", "", line)) < 10:
         return
     line = combine_sentences(line, sentences)
-    if tokenizer_check_if_text_too_long(line, tokenizer, max_length=1024):
-        print(f"skipping line as its too long ({len(line)}):\n" + line)
-        return
+    line = line.strip().replace(". ", "€").split("€")
+    n = ceil(len(line) / tokenizer_check_if_text_too_long(line, tokenizer, max_length=1024))
+    lines = [line[i:i + n] for i in range(0, len(line), n)]
+    return [". ".join(line) for line in lines]
 
+def modify_line(line):
     if random.random() > 0.02:
         # we will leave 2% of the data untouched, to teach the
         # model, not to "overact" on the texts
@@ -128,7 +128,6 @@ def filter_modify_line(line):
         new_line = delete_spaces(new_line)
     else:
         new_line = line
-
     return line, new_line
 
 
@@ -144,7 +143,9 @@ if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained("facebook/bart-base")
     with open(language+".csv","w",encoding='utf-8') as output:        
         with open(data_file,'r') as file:
-            lines = process_map(filter_modify_line, file, chunksize=100000, total=num_lines)
+            lsts = process_map(filter_split_line, file, chunksize=100000, total=num_lines)
+            lines = [line for lst in lsts if lst for line in lst]
+            lines = process_map(modify_line, lines, chunksize=100000, total=num_lines)
             for pair in lines:
                 if pair:
                     line, new_line = pair
